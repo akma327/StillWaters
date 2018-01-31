@@ -25,7 +25,7 @@ USAGE_STR = """
 # Arguments
 # <CRYS_REF> Absolute path to topology of crystal structure pre-aligned to simulation topology
 # <TOP> Absolute path to simulation topology 
-# <TRAJ_DIR> Absolute path to trajectory directory containing multiple fragments
+# <TRAJ> Absolute path to trajectory file
 # <OUTPUT> Output log 
 # <DISTANCE_THRESH> Distance threshold to search for neighboring waters near a certain region. In nanometers
 # <WATER_INDEX> The index of water molecule that serves as crystallographic reference 
@@ -34,12 +34,12 @@ USAGE_STR = """
 
 # Example
 
-CRYS_REF="/scratch/PI/rondror/akma327/DynamicNetworks/data/water-density/DOR-inactive-naltrindole-unpublished/condition-naltrindole-bound/4n6h_aligned_to_sim.pdb"
-TOP="/scratch/PI/rondror/akma327/DynamicNetworks/data/DynamicNetworksOutput/InteractionOutput/DOR-inactive-naltrindole-unpublished/condition-naltrindole-bound/step5_assembly.pdb"
-TRAJ="/scratch/PI/rondror/akma327/DynamicNetworks/data/DynamicNetworksOutput/InteractionOutput/DOR-inactive-naltrindole-unpublished/condition-naltrindole-bound/rep_1"
-OUTPUT="/scratch/PI/rondror/akma327/DynamicNetworks/data/water-stability/dor_inactive_rep1_allwaters/water_stability_1Ang.txt"
+CRYS_REF="/Users/anthony/Desktop/sherlock/MIF-waters/data/simulation/3DJH_wb/3djh_crys.pdb"
+TOP="/Users/anthony/Desktop/sherlock/MIF-waters/data/simulation/3DJH_wb/3DJH_wb.pdb"
+TRAJ="/Users/anthony/Desktop/sherlock/MIF-waters/data/simulation/3DJH_wb/3DJH_run.1.dcd"
+OUTPUT="/Users/anthony/Desktop/sherlock/MIF-waters/data/water_stability/water_stability_1Ang.txt"
 DISTANCE_THRESH=1.0
-cd /scratch/PI/rondror/akma327/DynamicNetworks/src/analysis/water-stability
+cd /Users/anthony/Desktop/dror/local-dev/github/StillWaters/src
 python water_stability.py $CRYS_REF $TOP $TRAJ $OUTPUT $DISTANCE_THRESH
 
 """
@@ -158,6 +158,8 @@ def get_water_and_residue_indices(TOP, crys_to_sim_index):
 def calc_water_occupancy(input_args):
 	"""
 		Worker method for calculating water stability of a set of positions
+
+		BUG: Make this work generically. Currently printing out all 0's 
 	"""
 
 	traj_idx, TOP, TRAJ, DISTANCE_THRESH, water_index_list, neighboring_resids_list = input_args
@@ -244,7 +246,7 @@ def calc_water_occupancy(input_args):
 
 
 
-def compute_water_stability(CRYS_REF, TOP, TRAJ_DIR, OUTPUT, DISTANCE_THRESH):
+def compute_water_stability(CRYS_REF, TOP, TRAJ, OUTPUT, DISTANCE_THRESH):
 	"""
 		Compute the water stability of specified water index position
 	"""
@@ -257,8 +259,7 @@ def compute_water_stability(CRYS_REF, TOP, TRAJ_DIR, OUTPUT, DISTANCE_THRESH):
 
 
 	### Preparing input arguments 
-	traj_fragments_list = sorted(glob.glob(TRAJ_DIR + "/Prod*/Prod*.nc"))
-	traj_fragments_list.sort(key=natural_keys)
+	traj_fragments_list = [TRAJ]
 	total_frames = 0
 	frames_with_water_density = 0
 
@@ -272,6 +273,7 @@ def compute_water_stability(CRYS_REF, TOP, TRAJ_DIR, OUTPUT, DISTANCE_THRESH):
 
 	### Piece together the trajectory statistics to get overall water stability for each position
 	num_waters = len(water_index_list)
+	print("num_waters", num_waters)
 	tot, occupied = np.array([0]*num_waters), np.array([0]*num_waters)
 	for traj_idx, total_frames, frames_with_water_density in output:
 		tot += total_frames
@@ -297,9 +299,9 @@ if __name__ == "__main__":
 		print(USAGE_STR)
 		exit(1)
 
-	(CRYS_REF, TOP, TRAJ_DIR, OUTPUT, DISTANCE_THRESH) = (sys.argv[1], sys.argv[2], sys.argv[3], sys.argv[4], float(sys.argv[5]))
+	(CRYS_REF, TOP, TRAJ, OUTPUT, DISTANCE_THRESH) = (sys.argv[1], sys.argv[2], sys.argv[3], sys.argv[4], float(sys.argv[5]))
 	tic = datetime.datetime.now()
-	compute_water_stability(CRYS_REF, TOP, TRAJ_DIR, OUTPUT, DISTANCE_THRESH)
+	compute_water_stability(CRYS_REF, TOP, TRAJ, OUTPUT, DISTANCE_THRESH)
 	toc = datetime.datetime.now()
 	print("Serial Computation Time ... Start ", tic, " ... Finish ", toc, " Difference: ", (toc-tic))
 
