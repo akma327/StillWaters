@@ -24,6 +24,8 @@ def occupancy_to_color(occupancy):
 	# color = [255*(1-isoval), 255*(1-isoval), 255] # white to blue
 	# color = [255*isoval, 0, 255*(1-isoval)] # blue to red 
 	color = "gray" + str(int(math.floor((1-occupancy)*100))).zfill(2)
+	if(color == "gray100"):
+		color = "gray99"
 	return color
 
 
@@ -39,19 +41,13 @@ def map_water_stability(TOP, WATER_STABILITY):
 	cmd.color("white", top_name)
 
 	f = open(WATER_STABILITY, 'r')
-	i = 0
 	for line in f:
-		# if(i > 10): break
-		# i += 1
 		linfo = line.strip().split("\t")
 		resi, occupancy = linfo[0], float(linfo[1])
 		color = occupancy_to_color(occupancy)
-		print(resi, color, occupancy)
 		cmd.do("sele water_%s, resn HOH and resi %s" % (resi, resi))
 		cmd.do("show spheres, water_%s" % (resi))
-		# cmd.color(color, "water_%s" % (resi))
-		# cmd.do("show spheres, resn HOH and resi " + str(resi))
-		# cmd.color(color, "resn HOH and resi " + str(resi))
+		cmd.color(color, "water_%s" % (resi))
 
 
 
