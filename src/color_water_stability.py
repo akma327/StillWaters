@@ -39,32 +39,25 @@ def map_water_stability(TOP, WATER_STABILITY):
 	cmd.color("white", top_name)
 
 	f = open(WATER_STABILITY, 'r')
+	i = 0
 	for line in f:
+		# if(i > 10): break
+		# i += 1
 		linfo = line.strip().split("\t")
 		resi, occupancy = linfo[0], float(linfo[1])
 		color = occupancy_to_color(occupancy)
-		print(color, occupancy)
-		cmd.do("show spheres, resn HOH and resi " + str(resi))
-		cmd.color(color, "resn HOH and resi " + str(resi))
+		print(resi, color, occupancy)
+		cmd.do("sele water_%s, resn HOH and resi %s" % (resi, resi))
+		cmd.do("show spheres, water_%s" % (resi))
+		# cmd.color(color, "water_%s" % (resi))
+		# cmd.do("show spheres, resn HOH and resi " + str(resi))
+		# cmd.color(color, "resn HOH and resi " + str(resi))
 
 
 
-# DOR
-# TOP="/Users/anthony/Desktop/dror/dynamic-networks/DynamicNetworks/data/water-density-with-neighbors/DOR-inactive-naltrindole-unpublished/condition-naltrindole-bound/4n6h_aligned_to_sim.pdb"
-# WATER_STABILITY="/Users/anthony/Desktop/dror/dynamic-networks/DynamicNetworks/data/water-stability/dor_inactive_rep1_allwaters/occupancy-data/water_stability_1Ang.txt"
-
-# DOR Inactive
-# TOP="/Users/anthony/Desktop/dror/dynamic-networks/DynamicNetworks/data/water-stability/072717_a2a_mor/crystal_pdbs/4n6h_aligned.pdb"
-# WATER_STABILITY="/Users/anthony/Desktop/dror/dynamic-networks/DynamicNetworks/data/water-stability/072717_a2a_mor/stability_values/dor_inactive_water_stability_1Ang.txt"
-
-
-# # MOR Active
-# TOP="/Users/anthony/Desktop/dror/dynamic-networks/DynamicNetworks/data/water-stability/072717_a2a_mor/crystal_pdbs/5c1m_aligned.pdb"
-# WATER_STABILITY="/Users/anthony/Desktop/dror/dynamic-networks/DynamicNetworks/data/water-stability/072717_a2a_mor/stability_values/mor_active_water_stability_1Ang.txt"
-
-# # A2A Inactive
-TOP="/Users/anthony/Desktop/dror/dynamic-networks/DynamicNetworks/data/water-stability/072717_a2a_mor/crystal_pdbs/5iu4_aligned.pdb"
-WATER_STABILITY="/Users/anthony/Desktop/dror/dynamic-networks/DynamicNetworks/data/water-stability/072717_a2a_mor/stability_values/a2a_inactive_water_stability_1Ang.txt"
+# MIF 
+TOP="/Users/anthony/Desktop/sherlock/MIF-waters/data/simulation/3DJH_wb/3djh_crys_aligned.pdb"
+WATER_STABILITY="/Users/anthony/Desktop/sherlock/MIF-waters/data/water_stability/water_stability_1Ang.txt"
 
 map_water_stability(TOP, WATER_STABILITY)
 

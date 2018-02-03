@@ -35,8 +35,6 @@ python water_stability2.py $crys_struc $top $traj $output $distance_thresh
 
 # TODO: Bugs
 - Accept any vmd input file 
-- Check if the simulation pdb and crystal pdb must match for alignment, can work around it. 
-- Take in long trajectory and perform internal chunking and parallelization 
 - Verify output sanity check 
 
 """
@@ -190,7 +188,7 @@ def calc_water_occupancy(frag_idx, beg_frame, end_frame, top, traj, distance_thr
 		refsel = atomsel("protein and resid " + neighboring_residues, molid = traj_molid, frame = 0)
 		for i in range(num_frames + 1):
 			if(i == 0): continue # Exclude first frame representing pdb 
-			if(i > 2): continue # Testing
+			if(i > 10): continue # Testing
 
 			print("Aligning frame %s ... for water index %s and protein resids %s" % (i, water_resid_idx, neighboring_residues))
 			molecule.set_frame(traj_molid, i)
@@ -257,7 +255,7 @@ def compute_water_stability(crys_struc, top, traj, output, distance_thresh = 1.0
 	estimated_sim_length = estimate_simulation_length(top, traj)
 	input_args = []
 	for frag_idx, beg_frame in enumerate(range(0, estimated_sim_length, TRAJ_FRAG_SIZE)):
-		if(frag_idx > 1): break
+		# if(frag_idx > 1): break
 		end_frame = beg_frame + TRAJ_FRAG_SIZE - 1
 		print("Processing fragment %s beg_frame %s end_frame %s" % (frag_idx, beg_frame, end_frame))
 		input_args.append((frag_idx, beg_frame, end_frame, top, traj, distance_thresh, crys_water_coords, crys_water_neighboring_resids))
@@ -279,7 +277,8 @@ def compute_water_stability(crys_struc, top, traj, output, distance_thresh = 1.0
 	f = open(output, 'w')
 	water_index_list = sorted(crys_water_coords.keys())
 	for idx, water_index in enumerate(water_index_list):
-		water_stability = float(occupied[idx])/total[idx]
+		# water_stability = float(occupied[idx])/total[idx]
+		water_stability = float(10*occupied[idx])/total[idx]
 		f.write("%s\t%s\n" % (water_index, water_stability))
 
 
