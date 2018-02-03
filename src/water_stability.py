@@ -3,14 +3,7 @@
 # Date: 07/13/17
 # water_stability.py
 
-import vmd, molecule, sys
-from vmd import *
-from atomsel import *
-import datetime 
-import glob 
-import re
-import numpy as np
-import time 
+from utils import *
 
 USAGE_STR = """
 
@@ -34,7 +27,7 @@ USAGE_STR = """
 
 # Example
 
-CRYS_REF="/Users/anthony/Desktop/sherlock/MIF-waters/data/simulation/3DJH_wb/3djh_crys.pdb"
+CRYS_REF="/Users/anthony/Desktop/sherlock/MIF-waters/data/simulation/3DJH_wb/3djh_crys_aligned.pdb"
 TOP="/Users/anthony/Desktop/sherlock/MIF-waters/data/simulation/3DJH_wb/3DJH_wb.pdb"
 TRAJ="/Users/anthony/Desktop/sherlock/MIF-waters/data/simulation/3DJH_wb/3DJH_run.1.dcd"
 OUTPUT="/Users/anthony/Desktop/sherlock/MIF-waters/data/water_stability/water_stability_1Ang.txt"
@@ -42,20 +35,16 @@ DISTANCE_THRESH=1.0
 cd /Users/anthony/Desktop/dror/local-dev/github/StillWaters/src
 python water_stability.py $CRYS_REF $TOP $TRAJ $OUTPUT $DISTANCE_THRESH
 
+
+# TODO: Bugs
+- Accept any vmd input file 
+- Check if the simulation pdb and crystal pdb must match for alignment, can work around it. 
+- Take in long trajectory and perform internal chunking and parallelization 
+- Verify output sanity check 
+
 """
 
 K_MIN_ARG = 6
-
-def atoi(text):
-    return int(text) if text.isdigit() else text
-
-def natural_keys(text):
-    return [ atoi(c) for c in re.split('(\d+)', text) ]
-
-def euc_dist(pt1, pt2):
-	a, b = np.array(pt1), np.array(pt2)
-	return np.linalg.norm(a-b)
-
 
 
 def map_water_to_coordinate(molid, selection, option="resid"):
@@ -65,6 +54,7 @@ def map_water_to_coordinate(molid, selection, option="resid"):
 		option = "resid" to get resid key, "index" to get index as keys
 	"""
 
+	### Get all water coordinates for a particular molecule
 	waters = evaltcl("set waters [atomselect " + str(molid) + " \" " + selection + " \" frame 0]")
 	resid = map(str, (evaltcl("$waters get resid")).split(" "))
 	indices = map(str, (evaltcl("$waters get index")).split(" "))
@@ -84,6 +74,21 @@ def map_water_to_coordinate(molid, selection, option="resid"):
 
 	return water_resid_to_coord
 
+def align_crys_to_sim_structures(crys_molid, sim_molid):
+	"""
+		Aligns the crystal structure to simulation. 
+
+		Work in progress
+	"""
+	pass
+	# crys_struc = evaltcl("set crys_struc [atomselect " + str(crys_molid) + " \" protein and carbon \" frame 0]")
+	# sim_struc = evaltcl("set sim_struc [atomselect " + str(sim_molid) + " \" protein and carbon \" frame 0]")
+	# print len(map(str, (evaltcl("$crys_struc get resid")).split(" ")))
+	# print len(map(str, (evaltcl("$sim_struc get resid")).split(" ")))
+	# M = evaltcl("set M [measure fit $crys_struc $sim_struc]")
+	# evaltcl("$crys_struc move $M")
+
+
 
 def map_crystal_to_sim(CRYS_PDB, SIM_PDB):
 	"""
@@ -93,11 +98,15 @@ def map_crystal_to_sim(CRYS_PDB, SIM_PDB):
 	crys_molid = molecule.load('pdb', CRYS_PDB)
 	sim_molid = molecule.load('pdb', SIM_PDB)
 
+	# align_crys_to_sim_structures(crys_molid, sim_molid)
+
 	# coordinate_selection = "noh and water and x > -15 and x < 25 and y > -25 and y < 25 and z > -17 and z < 17"
 	coordinate_selection = "noh and water within 4 of protein"
 
 	crys_resid_to_coord = map_water_to_coordinate(crys_molid, coordinate_selection, "resid")
 	sim_resid_to_coord = map_water_to_coordinate(sim_molid, coordinate_selection, "index")
+
+	print crys_resid_to_coord
 
 	### Map crystal water resid to simulation water resid
 	crys_to_sim_index = {}
@@ -125,12 +134,14 @@ def map_crystal_to_sim(CRYS_PDB, SIM_PDB):
 def get_water_and_residue_indices(TOP, crys_to_sim_index):
 	"""
 		Input: Topology, mapping between crystal water resid and simulation water resid
-		Output: List of tuples (water_index, residue_indices)
+		Output: List of tuples (water_index, residue_indices) that matches a water to its neighboring residue indices
 	"""
 
 	structure_molid = molecule.load('pdb', TOP)
 	water_index_list, neighboring_resids_list = [], []
 	for crys_water_index in crys_to_sim_index:
+
+		### Get simulation water index
 		WATER_INDEX = crys_to_sim_index[crys_water_index]
 		selection = "same residue as protein within 5 of (noh and water and index " + WATER_INDEX + ")"
 		neighbor_residues_atoms = evaltcl("set neighbor_residues_atoms [atomselect " + str(structure_molid) + " \" " + selection + " \" frame 0]")
@@ -170,8 +181,9 @@ def calc_water_occupancy(input_args):
 	num_waters = len(water_index_list)
 	frames_with_water_density = np.array([0]*num_waters)
 
+	### BUG Got to make this agnostic to input type 
 	traj_molid = molecule.load('pdb', TOP)
-	molecule.read(traj_molid, 'netcdf', TRAJ, beg=0, end=-1, waitfor=-1)
+	molecule.read(traj_molid, 'dcd', TRAJ, beg=0, end=-1, waitfor=-1)
 
 	nFrames = molecule.numframes(traj_molid) - 1
 	total_frames = np.array([nFrames]*num_waters)
@@ -198,7 +210,7 @@ def calc_water_occupancy(input_args):
 	### Align frames
 
 	for idx, NEIGHBORING_RESIDS in enumerate(neighboring_resids_list):
-		# if(idx != 2): continue
+		if(idx != 2): continue
 		refsel = atomsel("protein and resid " + NEIGHBORING_RESIDS, molid = traj_molid, frame = 0)
 		for i in range(nFrames + 1):
 			if(i == 0): continue
@@ -246,7 +258,7 @@ def calc_water_occupancy(input_args):
 
 
 
-def compute_water_stability(CRYS_REF, TOP, TRAJ, OUTPUT, DISTANCE_THRESH):
+def compute_water_stability(CRYS_REF, TOP, TRAJ, OUTPUT, DISTANCE_THRESH=1.0):
 	"""
 		Compute the water stability of specified water index position
 	"""
@@ -257,18 +269,25 @@ def compute_water_stability(CRYS_REF, TOP, TRAJ, OUTPUT, DISTANCE_THRESH):
 
 	water_index_list, neighboring_resids_list = get_water_and_residue_indices(TOP, crys_to_sim_index)
 
+	print "test1", water_index_list
+	print "test", neighboring_resids_list
 
-	### Preparing input arguments 
-	traj_fragments_list = [TRAJ]
-	total_frames = 0
-	frames_with_water_density = 0
+	# # print water_index_list, len(water_index_list)
+	# # print neighboring_resids_list, len(neighboring_resids_list)
 
-	### Iterate through each trajectory fragment 
-	output = []
-	for traj_idx, TRAJ in enumerate(traj_fragments_list):
-		# if(traj_idx > 3): break
-		input_args = (traj_idx, TOP, TRAJ, DISTANCE_THRESH, water_index_list, neighboring_resids_list)
-		output.append(calc_water_occupancy(input_args))
+	# ### Preparing input arguments 
+	# traj_fragments_list = [TRAJ]
+	# total_frames = 0
+	# frames_with_water_density = 0
+
+	# ### Iterate through each trajectory fragment 
+	# output = []
+	# for traj_idx, TRAJ in enumerate(traj_fragments_list):
+	# 	# if(traj_idx > 3): break
+	# 	input_args = (traj_idx, TOP, TRAJ, DISTANCE_THRESH, water_index_list, neighboring_resids_list)
+	# 	output.append(calc_water_occupancy(input_args))
+
+	# print output 
 
 
 	### Piece together the trajectory statistics to get overall water stability for each position
